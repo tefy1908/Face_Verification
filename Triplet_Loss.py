@@ -187,7 +187,7 @@ def cosine_triplet_loss(X, margin=0.5):
 #sharedeConv
 class SharedConv(tf.keras.Model):
     def __init__(self):
-        super().__init__(self, name="sharedconv")
+        super(SharedConv, self).__init__(name="sharedconv")
         
         self.conv1 = Conv2D(16, 3, activation="relu", padding="same")
         self.conv2 = Conv2D(16, 3, activation="relu", padding="same")
@@ -219,7 +219,7 @@ shared_conv = SharedConv()
 #TRIPLET NETWORK 
 class TripletNetwork(tf.keras.Model):
     def __init__(self, shared_conv):
-        super().__init__(self, name="tripletnetwork")
+        super(TripletNetwork, self).__init__(name="Triplet Network")
         
         self.shared_conv = shared_conv
         self.dot = Dot(axes=-1, normalize=True)
@@ -245,7 +245,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.models import load_model
 
 
-best_model_fname = "triplet_checkpoint_b2.h5"
+best_model_fname = "triplet_pretrained.h5"
 best_model_cb = ModelCheckpoint(best_model_fname, monitor='val_loss',
                                 save_best_only=True, verbose=1)
 
@@ -259,4 +259,4 @@ plt.plot(history.history['val_loss'], label='validation')
 plt.ylim(0, 0.5)
 plt.legend(loc='best')
 plt.title('Loss')
-model_triplet.load_weights("triplet_checkpoint_b2.h5")
+model_triplet.load_weights("triplet_pretrained.h5")

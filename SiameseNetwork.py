@@ -313,7 +313,7 @@ shared_conv.summary()
 
 class Siamese(tf.keras.Model):
     def __init__(self, shared_conv):
-        super().__init__(self, name="siamese")
+        super(Siamese, self).__init__(name="Siamese")
         self.conv = shared_conv
         self.dot = Dot(axes=-1, normalize=True)
 
@@ -332,15 +332,75 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.models import load_model
 
 
-best_model_fname = "siamese_checkpoint.h5"
-best_model_cb = ModelCheckpoint(best_model_fname, monitor='val_accuracy_sim',
-                                save_best_only=True, verbose=1)
 
-model.fit_generator(generator=gen, 
-                    epochs=15,
-                    validation_data=([test_X1, test_X2], test_Y),
-                    callbacks=[best_model_cb], verbose=2)
+#most similar 
 
-model.load_weights("siamese_checkpoint.h5")
+all_images_path = []
+for img_list in img_paths.values():
+    all_images_path += img_list
+path_to_id = {v: k for k, v in enumerate(all_images_path)}
+id_to_path = {v: k for k, v in path_to_id.items()}
+all_imgs = open_all_images(id_to_path)
 
+# Actually compute the similarities
+emb = shared_conv(all_imgs)
+emb = emb / np.linalg.norm(emb, axis=-1, keepdims=True)
 
+def most_sim(x, emb, topn=4):
+    sims = np.dot(emb, x)
+    ids = np.argsort(sims)[::-1]
+    return [(id, sims[id]) for id in ids[:topn]]
+
+def display(img):
+    img = img.astype('uint8')
+    plt.imshow(img)
+    plt.axis('off')
+    plt.show()
+
+interesting_classes = list(filter(lambda x: len(x[1]) > 4, classid_to_ids.items()))
+class_id = random.choice(interesting_classes)[0]
+
+query_id = random.choice(classid_to_ids[class_id])
+print("query:", classid_to_name[class_id], query_id)
+# display(all_imgs[query_id])
+
+print("nearest matches")
+for result_id, sim in most_sim(emb[query_id], emb):
+    class_name = classid_to_name.get(id_to_classid.get(result_id))
+    print(class_name, result_id, sim)    
+    display(all_imgs[result_id])
+
+import cv2
+
+def camera_grab(camera_id=0, fallback_filename=None):
+    camera = cv2.VideoCapture(camera_id)
+    try:
+        # take 10 consecutive snapshots to let the camera automatically tune
+        # itself and hope that the contrast and lightning of the last snapshot
+        # is good enough.
+        for i in range(10):
+            snapshot_ok, image = camera.read()
+        if snapshot_ok:
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        else:
+            print("WARNING: could not access camera")
+            if fallback_filename:
+                image = imread(fallback_filename)
+    finally:
+        camera.release()
+    return image
+
+image = camera_grab(camera_id=0,
+                    fallback_filename='test_images/olivier/img_olivier_0.jpeg')
+x = resize100(image)
+out = shared_conv(np.reshape(x, (1, 60, 60, 3)))
+print("query image:")
+display(x)
+for id, sim in most_sim(out[0], emb, topn=10):
+    class_name = classid_to_name.get(id_to_classid.get(id))
+    if class_name is None:
+        print(id)
+    print(class_name, id, sim)
+    display(all_imgs[id])
+
+    
